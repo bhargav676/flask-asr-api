@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import os
-
+ 
 app = Flask(__name__)
 
 MODEL_DIR = "/home/site/models/whisper_dysarthria_final"
@@ -69,3 +69,4 @@ def upload_audio():
 
     result = transcriber(path)
     return jsonify({"text": result["text"]})
+
