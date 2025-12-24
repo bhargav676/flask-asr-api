@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 import os
 import torch
-from transformers import pipeline
+from transformers import pipeline 
 import requests 
 import zipfile
 
@@ -59,4 +59,5 @@ def upload_audio():
 
 if __name__ == "__main__":
     app.run()
+
 
