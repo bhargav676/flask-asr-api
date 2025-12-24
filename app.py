@@ -1,9 +1,5 @@
 from flask import Flask, request, jsonify
 import os
-import torch
-from transformers import pipeline 
-import requests 
-import zipfile
 
 app = Flask(__name__)
 
@@ -13,36 +9,53 @@ MODEL_SAS_URL = os.environ.get("MODEL_SAS_URL")
 
 transcriber = None
 
+# -----------------------------
+# LIGHT HOME ROUTE (SAFE)
+# -----------------------------
 @app.route("/")
 def home():
-    return "Flask ASR server running (Whisper-small)"
+    return "Flask ASR server running ✅"
 
-def download_and_extract_model():
+# -----------------------------
+# DOWNLOAD + LOAD (LAZY)
+# -----------------------------
+def load_model():
+    global transcriber
+    if transcriber is not None:
+        return
+
+    print("Starting model load...")
+
+    import torch
+    from transformers import pipeline
+    import requests, zipfile
+
+    os.makedirs("/home/site/models", exist_ok=True)
+
     if not os.path.exists(MODEL_DIR):
-        os.makedirs("/home/site/models", exist_ok=True)
-
         print("Downloading model from Blob Storage...")
-        r = requests.get(MODEL_SAS_URL)
+
+        r = requests.get(MODEL_SAS_URL, stream=True)
         with open(MODEL_ZIP, "wb") as f:
-            f.write(r.content)
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
 
         with zipfile.ZipFile(MODEL_ZIP, "r") as zip_ref:
             zip_ref.extractall("/home/site/models")
 
         print("Model downloaded and extracted")
 
-def load_model():
-    global transcriber
-    if transcriber is None:
-        download_and_extract_model()
-        print("Loading Whisper-small model...")
-        transcriber = pipeline(
-            "automatic-speech-recognition",
-            model=MODEL_DIR,
-            device=-1  # CPU
-        )
-        print("Model loaded")
+    print("Loading Whisper model...")
+    transcriber = pipeline(
+        "automatic-speech-recognition",
+        model=MODEL_DIR,
+        device=-1
+    )
+    print("Model loaded")
 
+# -----------------------------
+# UPLOAD ROUTE
+# -----------------------------
 @app.route("/upload", methods=["POST"])
 def upload_audio():
     load_model()
@@ -56,8 +69,3 @@ def upload_audio():
 
     result = transcriber(path)
     return jsonify({"text": result["text"]})
-
-if __name__ == "__main__":
-    app.run()
-
-
